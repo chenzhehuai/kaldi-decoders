@@ -34,20 +34,39 @@ namespace fst {
 template<class Arc>
 ComposeFst<Arc> TableComposeFst(
     const Fst<Arc> &ifst1, const Fst<Arc> &ifst2,
-    const CacheOptions& cache_opts = CacheOptions()) {
-  typedef Fst<Arc> F;
-  typedef SortedMatcher<F> SM;
-  typedef TableMatcher<F> TM;
-  typedef ArcLookAheadMatcher<SM> LA_SM;
-  typedef SequenceComposeFilter<TM, LA_SM> SCF;
-  typedef LookAheadComposeFilter<SCF, TM, LA_SM, MATCH_INPUT> LCF;
-  typedef PushWeightsComposeFilter<LCF, TM, LA_SM, MATCH_INPUT> PWCF;
-  typedef PushLabelsComposeFilter<PWCF, TM, LA_SM, MATCH_INPUT> PWLCF;
-  TM* lam1 = new TM(ifst1, MATCH_OUTPUT);
-  LA_SM* lam2 = new LA_SM(ifst2, MATCH_INPUT);
-  PWLCF* laf = new PWLCF(ifst1, ifst2, lam1, lam2);
-  ComposeFstImplOptions<TM, LA_SM, PWLCF> opts(cache_opts, lam1, lam2, laf);
-  return ComposeFst<Arc>(ifst1, ifst2, opts);
+    const CacheOptions& cache_opts = CacheOptions(),
+    const int otf_mode = 1) {
+      if (otf_mode==1) {
+              typedef Fst<Arc> F;
+              typedef SortedMatcher<F> SM;
+              typedef TableMatcher<F> TM;
+              typedef ArcLookAheadMatcher<SM> LA_SM;
+              typedef SequenceComposeFilter<TM, LA_SM> SCF;
+              typedef LookAheadComposeFilter<SCF, TM, LA_SM, MATCH_INPUT> LCF;
+              typedef PushWeightsComposeFilter<LCF, TM, LA_SM, MATCH_INPUT> PWCF;
+              typedef PushLabelsComposeFilter<PWCF, TM, LA_SM, MATCH_INPUT> PWLCF;
+              TM* lam1 = new TM(ifst1, MATCH_OUTPUT);
+              LA_SM* lam2 = new LA_SM(ifst2, MATCH_INPUT);
+              PWLCF* laf = new PWLCF(ifst1, ifst2, lam1, lam2);
+              ComposeFstImplOptions<TM, LA_SM, PWLCF> opts(cache_opts, lam1, lam2, laf);
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+      }
+      else if (otf_mode==2) {
+              typedef LookAheadMatcher< StdFst > M;
+              typedef AltSequenceComposeFilter<M> SF;
+              typedef LookAheadComposeFilter<SF, M>  LF;
+              typedef PushWeightsComposeFilter<LF, M> WF;
+              typedef PushLabelsComposeFilter<WF, M> ComposeFilter;
+              typedef M FstMatcher;
+          
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts2(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts2);
+      }
+      else
+      {
+              KALDI_ERR << "otf_mode undefined: " << otf_mode << std::endl;
+              return ComposeFst<Arc>(ifst1, ifst2, cache_opts);
+      }
 }
 
 }  // namespace fst
@@ -74,6 +93,7 @@ int main(int argc, char *argv[]) {
     Timer timer;
     bool allow_partial = false;
     BaseFloat acoustic_scale = 0.1;
+    int otf_mode=1;
     LatticeFasterDecoderConfig config;
     std::string word_syms_filename;
     fst::CacheOptions cache_config;
@@ -93,6 +113,9 @@ int main(int argc, char *argv[]) {
                 "garbage collection.");
     po.Register("word-symbol-table", &word_syms_filename,
                 "Symbol table for words [for debug output].");
+    po.Register("otf-mode", &otf_mode,
+                "on-the-fly comp. mode.");
+
     po.Read(argc, argv);
     cache_config.gc_limit = gc_limit;
 
@@ -152,9 +175,9 @@ int main(int argc, char *argv[]) {
 
       // On-demand composition of HCL and G
       fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
-          *hcl_fst, *g_fst, cache_config);
-      timer.Reset();
+                  *hcl_fst, *g_fst, cache_config, otf_mode);
 
+      timer.Reset();
       {
         LatticeFasterDecoder decoder(decode_fst, config);
 
@@ -186,7 +209,9 @@ int main(int argc, char *argv[]) {
       // delete these only after decoder goes out of scope.
       delete hcl_fst;
       delete g_fst;
-    } else if(is_table_hcl && is_table_g) {
+    } 
+#if 0
+    else if(is_table_hcl && is_table_g) {
       // We have different FSTs for different utterances.
       SequentialBaseFloatMatrixReader loglike_reader(feature_rspecifier);
       RandomAccessTableReader<fst::VectorFstHolder> hcl_reader(hcl_in_str);
@@ -230,7 +255,9 @@ int main(int argc, char *argv[]) {
           num_success++;
         } else num_fail++;
       }
-    } else {
+    } 
+#endif    
+    else {
       KALDI_ERR << "The decoding of tables/non-tables and match-type that you "
                 << "supplied is not currently supported. Either implement "
                 << "this, ask the maintainers to implement it, or call this "
