@@ -147,8 +147,8 @@ int main(int argc, char *argv[]) {
       // It has to do with what happens on UNIX systems if you call fork() on a
       // large process: the page-table entries are duplicated, which requires a
       // lot of virtual memory.
-      VectorFst<StdArc> *hcl_fst = fst::ReadFstKaldi(hcl_in_str);
-      VectorFst<StdArc> *g_fst = fst::ReadFstKaldi(g_in_str);
+      fst::Fst<StdArc> *hcl_fst = fst::ReadFstKaldiGeneric(hcl_in_str, true);
+      fst::Fst<StdArc> *g_fst = fst::ReadFstKaldiGeneric(g_in_str, true);
 
       // On-demand composition of HCL and G
       fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
