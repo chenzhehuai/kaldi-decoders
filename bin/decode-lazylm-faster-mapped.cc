@@ -35,20 +35,46 @@ namespace fst {
 template<class Arc>
 ComposeFst<Arc> TableComposeFst(
     const Fst<Arc> &ifst1, const Fst<Arc> &ifst2,
-    const CacheOptions& cache_opts = CacheOptions()) {
-  typedef Fst<Arc> F;
-  typedef SortedMatcher<F> SM;
-  typedef TableMatcher<F> TM;
-  typedef ArcLookAheadMatcher<SM> LA_SM;
-  typedef SequenceComposeFilter<TM, LA_SM> SCF;
-  typedef LookAheadComposeFilter<SCF, TM, LA_SM, MATCH_INPUT> LCF;
-  typedef PushWeightsComposeFilter<LCF, TM, LA_SM, MATCH_INPUT> PWCF;
-  typedef PushLabelsComposeFilter<PWCF, TM, LA_SM, MATCH_INPUT> PWLCF;
-  TM* lam1 = new TM(ifst1, MATCH_OUTPUT);
-  LA_SM* lam2 = new LA_SM(ifst2, MATCH_INPUT);
-  PWLCF* laf = new PWLCF(ifst1, ifst2, lam1, lam2);
-  ComposeFstImplOptions<TM, LA_SM, PWLCF> opts(cache_opts, lam1, lam2, laf);
-  return ComposeFst<Arc>(ifst1, ifst2, opts);
+    const CacheOptions& cache_opts = CacheOptions(),
+    const int otf_mode = 1) {
+      if (otf_mode==1) {
+              typedef Fst<Arc> F;
+              typedef SortedMatcher<F> SM;
+              typedef TableMatcher<F> TM;
+              typedef ArcLookAheadMatcher<SM> LA_SM;
+              typedef SequenceComposeFilter<TM, LA_SM> SCF;
+              typedef LookAheadComposeFilter<SCF, TM, LA_SM, MATCH_INPUT> LCF;
+              typedef PushWeightsComposeFilter<LCF, TM, LA_SM, MATCH_INPUT> PWCF;
+              typedef PushLabelsComposeFilter<PWCF, TM, LA_SM, MATCH_INPUT> PWLCF;
+              TM* lam1 = new TM(ifst1, MATCH_OUTPUT);
+              LA_SM* lam2 = new LA_SM(ifst2, MATCH_INPUT);
+              PWLCF* laf = new PWLCF(ifst1, ifst2, lam1, lam2);
+              ComposeFstImplOptions<TM, LA_SM, PWLCF> opts(cache_opts, lam1, lam2, laf);
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+      }
+      else if (otf_mode==2) {
+              typedef LookAheadMatcher< StdFst > M;
+              typedef AltSequenceComposeFilter<M> SF;
+              typedef LookAheadComposeFilter<SF, M>  LF;
+              typedef PushWeightsComposeFilter<LF, M> WF;
+              typedef PushLabelsComposeFilter<WF, M> ComposeFilter;
+              typedef M FstMatcher;
+          
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts2(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts2);
+      }
+      else if (otf_mode==3) {
+              typedef DefaultLookAhead<Arc, MATCH_OUTPUT> LA;
+              using FstMatcher = typename LA::FstMatcher;
+              using ComposeFilter = typename LA::ComposeFilter;
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts3);
+      }
+      else
+      {
+              KALDI_ERR << "otf_mode undefined: " << otf_mode << std::endl;
+              return ComposeFst<Arc>(ifst1, ifst2, cache_opts);
+      }
 }
 
 }  // namespace fst
@@ -74,6 +100,7 @@ int main(int argc, char *argv[]) {
     bool binary = true;
     BaseFloat acoustic_scale = 0.1;
     bool allow_partial = true;
+    int otf_mode=1;
     std::string word_syms_filename;
     FasterDecoderOptions decoder_opts;
     fst::CacheOptions cache_config;
@@ -90,7 +117,10 @@ int main(int argc, char *argv[]) {
                 "Number of bytes allowed in the composition cache before "
                 "garbage collection.");
     po.Register("word-symbol-table", &word_syms_filename,
-                "Symbol table for words [for debug output]");
+                "Symbol table for words [for debug output].");
+    po.Register("otf-mode", &otf_mode,
+                "on-the-fly comp. mode.");
+
     po.Read(argc, argv);
     cache_config.gc_limit = gc_limit;
 
@@ -127,12 +157,13 @@ int main(int argc, char *argv[]) {
     // It has to do with what happens on UNIX systems if you call fork() on a
     // large process: the page-table entries are duplicated, which requires a
     // lot of virtual memory.
-    VectorFst<StdArc> *hcl_fst = fst::ReadFstKaldi(hcl_in_filename);
-    VectorFst<StdArc> *g_fst = fst::ReadFstKaldi(g_in_filename);
+    fst::Fst<StdArc> *hcl_fst = fst::ReadFstKaldiGeneric(hcl_in_filename, true);
+    fst::Fst<StdArc> *g_fst = fst::ReadFstKaldiGeneric(g_in_filename, true);
+
 
     // On-demand composition of HCL and G
     fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
-        *hcl_fst, *g_fst, cache_config);
+        *hcl_fst, *g_fst, cache_config, otf_mode);
 
     BaseFloat tot_like = 0.0;
     kaldi::int64 frame_count = 0;
