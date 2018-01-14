@@ -70,6 +70,13 @@ ComposeFst<Arc> TableComposeFst(
               ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
               return ComposeFst<Arc>(ifst1, ifst2, opts3);
       }
+      else if (otf_mode==4) {
+              typedef DefaultLookAhead<Arc, MATCH_INPUT> LA;
+              using FstMatcher = typename LA::FstMatcher;
+              using ComposeFilter = typename LA::ComposeFilter;
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts3);
+      }
       else
       {
               KALDI_ERR << "otf_mode undefined: " << otf_mode << std::endl;
