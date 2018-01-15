@@ -74,8 +74,8 @@ ComposeFst<Arc> TableComposeFst(
               typedef DefaultLookAhead<Arc, MATCH_INPUT> LA;
               using FstMatcher = typename LA::FstMatcher;
               using ComposeFilter = typename LA::ComposeFilter;
-              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
-              return ComposeFst<Arc>(ifst1, ifst2, opts3);
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts4(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts4);
       }
       else
       {

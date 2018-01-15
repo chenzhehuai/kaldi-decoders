@@ -1,15 +1,22 @@
 #!/bin/bash
-set -xe
-LANG=$1
-EXP=$2
-GRAPH=$3
-KALDI_ROOT=$4
+set -x
 
 tscale=1.0
 loopscale=1.0
 N=2
 P=1
-stage=5
+stage=0
+
+echo "$0 $@"  # Print the command line for logging
+
+[ -f ./path.sh ] && . ./path.sh; # source the path.
+. parse_options.sh || exit 1;
+
+LANG=$1
+EXP=$2
+GRAPH=$3
+KALDI_ROOT=$4
+
 
 #required="$lang/L.fst $lang/G.fst $lang/phones.txt $lang/words.txt $lang/phones/silence.csl $lang/phones/disambig.int $model $tree"
 #for f in $required; do
@@ -82,7 +89,7 @@ fstrelabel --relabel_ipairs=${GRAPH}/g.irelabel ${LANG}/G.fst \
 
  fi
 if [ $stage -le 4 ]; then
-rm $GRAPH/words.txt 
+if [  -f "$GRAPH/words.txt" ]; then rm $GRAPH/words.txt ;fi
  ln -s ../../$LANG/words.txt $GRAPH/words.txt
  #awk 'NR==FNR{d[$2]=$1}NR!=FNR{if (d[$2]==""){d[$2]=$2};print $1,d[$2]}' $GRAPH/g.irelabel $LANG/words.txt | sort -k 2n |awk '{print $1,NR-1}' > $GRAPH/words.txt
  #awk 'NR==FNR{d[$1]=$2}NR!=FNR{if (d[$2]==""){d[$2]=$2};print $1,d[$2]}' $GRAPH/g.irelabel $LANG/words.txt | sort -k 2n |awk '{print $1,NR-1}' > $GRAPH/words.txt
