@@ -28,6 +28,7 @@
 #include "decoder/decoder-wrappers.h"
 #include "decoder/decodable-matrix.h"
 #include "base/timer.h"
+#include <fst/script/info.h>
 
 namespace fst {
 
@@ -112,6 +113,7 @@ int main(int argc, char *argv[]) {
     std::string word_syms_filename;
     fst::CacheOptions cache_config;
     int gc_limit = 536870912;  // 512MB
+    int debug_mode=0;
 
     config.Register(&po);
     po.Register("acoustic-scale", &acoustic_scale,
@@ -129,6 +131,9 @@ int main(int argc, char *argv[]) {
                 "Symbol table for words [for debug output].");
     po.Register("otf-mode", &otf_mode,
                 "on-the-fly comp. mode.");
+    po.Register("debug-mode", &debug_mode,
+                "on-the-fly debug mode.");
+
 
     po.Read(argc, argv);
     cache_config.gc_limit = gc_limit;
@@ -167,7 +172,7 @@ int main(int argc, char *argv[]) {
         KALDI_ERR << "Could not read symbol table from file "
                    << word_syms_filename;
 
-    double tot_like = 0.0;
+    double tot_like = 0.0, elapsed=0.0, remain_elapsed=0.0;
     kaldi::int64 frame_count = 0;
     int num_success = 0, num_fail = 0;
 
@@ -218,9 +223,23 @@ int main(int argc, char *argv[]) {
             frame_count += loglikes.NumRows();
             num_success++;
           } else num_fail++;
+    if (debug_mode&0x10)
+    {
+        ;
+        //std::cout << "arc state:"<<  decode_fst.fst::internal::CacheImpl::NumStates(); //decode_fst.GetMutableImpl()->fst::internal::ComposeFstImplBase<StdArc>::NumArcs() <<
+    }
         }
       }
+    elapsed = timer.Elapsed();
+    if (debug_mode&0x1)
+    {
+    timer.Reset();
       // delete these only after decoder goes out of scope.
+    fst::FstInfo fstinfo(decode_fst,false, "any", "long");
+    fst::PrintFstInfoImpl(fstinfo, std::cout);
+    remain_elapsed = timer.Elapsed();
+    }
+
       delete hcl_fst;
       delete g_fst;
     } 
@@ -278,10 +297,11 @@ int main(int argc, char *argv[]) {
                 << "program differently.";
     }
 
-    double elapsed = timer.Elapsed();
+
     KALDI_LOG << "Time taken "<< elapsed
               << "s: real-time factor assuming 100 frames/sec is "
               << (elapsed*100.0/frame_count);
+    KALDI_LOG << "loading remaining HCLG: "<< remain_elapsed ;
     KALDI_LOG << "Done " << num_success << " utterances, failed for "
               << num_fail;
     KALDI_LOG << "Overall log-likelihood per frame is " << (tot_like/frame_count) << " over "
