@@ -72,14 +72,13 @@ fstconvert --fst_type=ilabel_lookahead \
 fstrelabel --relabel_opairs=${GRAPH}/cl.irelabel ${GRAPH}/Ha.fst \
     | fstarcsort --sort_type=olabel \
   | fstcompose - ${GRAPH}/la.CL.fst \
-  | fstdeterminize \
   > ${GRAPH}/det.HaCL.fst
 fstisstochastic $GRAPH/det.HaCL.fst
 
-${KALDI_ROOT}/src/fstbin/fstrmsymbols \
-  ${GRAPH}/h.disambig.int ${GRAPH}/det.HaCL.fst \
-  | ${KALDI_ROOT}/src/fstbin/fstrmepslocal \
-  | fstminimizeencoded  \
+fstdeterminize ${GRAPH}/det.HaCL.fst \
+| ${KALDI_ROOT}/src/fstbin/fstrmsymbols ${GRAPH}/h.disambig.int  \
+  | ${KALDI_ROOT}/src/fstbin/fstrmepslocal > ${GRAPH}/tmp.fst
+  fstminimizeencoded   ${GRAPH}/tmp.fst \
   | fstpushspecial \
   | ${KALDI_ROOT}/src/bin/add-self-loops --self-loop-scale=$loopscale \
   --reorder=true ${EXP}/final.mdl - \

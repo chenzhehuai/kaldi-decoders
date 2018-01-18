@@ -77,6 +77,9 @@ ComposeFst<Arc> TableComposeFst(
               ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
               return ComposeFst<Arc>(ifst1, ifst2, opts3);
       }
+      else if (otf_mode==5) {
+              return ComposeFst<Arc>(ifst1, ifst2, cache_opts);
+      }
       else
       {
               KALDI_ERR << "otf_mode undefined: " << otf_mode << std::endl;
@@ -172,7 +175,7 @@ int main(int argc, char *argv[]) {
         KALDI_ERR << "Could not read symbol table from file "
                    << word_syms_filename;
 
-    double tot_like = 0.0, elapsed=0.0, remain_elapsed=0.0;
+    double tot_like = 0.0, elapsed=0.0, remain_elapsed=0.0, remain_elapsed_st;
     kaldi::int64 frame_count = 0;
     int num_success = 0, num_fail = 0;
 
@@ -195,7 +198,14 @@ int main(int argc, char *argv[]) {
       // On-demand composition of HCL and G
       fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
                   *hcl_fst, *g_fst, cache_config, otf_mode);
-
+    if (debug_mode&(1<<2))
+    {
+    timer.Reset();
+      // delete these only after decoder goes out of scope.
+    fst::FstInfo fstinfo(decode_fst,false, "any", "long");
+    fst::PrintFstInfoImpl(fstinfo, std::cout);
+    remain_elapsed_st = timer.Elapsed();
+    }
       timer.Reset();
       {
         LatticeFasterDecoder decoder(decode_fst, config);
@@ -223,7 +233,7 @@ int main(int argc, char *argv[]) {
             frame_count += loglikes.NumRows();
             num_success++;
           } else num_fail++;
-    if (debug_mode&0x10)
+    if (debug_mode&(1<<1))
     {
         ;
         //std::cout << "arc state:"<<  decode_fst.fst::internal::CacheImpl::NumStates(); //decode_fst.GetMutableImpl()->fst::internal::ComposeFstImplBase<StdArc>::NumArcs() <<
@@ -231,7 +241,7 @@ int main(int argc, char *argv[]) {
         }
       }
     elapsed = timer.Elapsed();
-    if (debug_mode&0x1)
+    if (debug_mode&(1<<0))
     {
     timer.Reset();
       // delete these only after decoder goes out of scope.
@@ -301,7 +311,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Time taken "<< elapsed
               << "s: real-time factor assuming 100 frames/sec is "
               << (elapsed*100.0/frame_count);
-    KALDI_LOG << "loading remaining HCLG: "<< remain_elapsed ;
+    KALDI_LOG << "loading remaining HCLG: "<< remain_elapsed_st <<" "<< remain_elapsed ;
     KALDI_LOG << "Done " << num_success << " utterances, failed for "
               << num_fail;
     KALDI_LOG << "Overall log-likelihood per frame is " << (tot_like/frame_count) << " over "
