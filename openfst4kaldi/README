@@ -1,0 +1,5 @@
+use this Makefile to replace the one in kaldi/tools
+mv there & run:
+make CXXFLAGS="-g -O3 " -j 10
+
+After that, your openfst will be compiled with lookahead utils
