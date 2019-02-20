@@ -200,11 +200,11 @@ int main(int argc, char *argv[]) {
                   *hcl_fst, *g_fst, cache_config, otf_mode);
     if (debug_mode&(1<<2))
     {
-    timer.Reset();
+      timer.Reset();
       // delete these only after decoder goes out of scope.
-    fst::FstInfo fstinfo(decode_fst,false, "any", "long");
-    fst::PrintFstInfoImpl(fstinfo, std::cout);
-    remain_elapsed_st = timer.Elapsed();
+      fst::FstInfo fstinfo(decode_fst,false, "any", "long");
+      fst::PrintFstInfoImpl(fstinfo, true);
+      remain_elapsed_st = timer.Elapsed();
     }
       timer.Reset();
       {
@@ -243,11 +243,11 @@ int main(int argc, char *argv[]) {
     elapsed = timer.Elapsed();
     if (debug_mode&(1<<0))
     {
-    timer.Reset();
+      timer.Reset();
       // delete these only after decoder goes out of scope.
-    fst::FstInfo fstinfo(decode_fst,false, "any", "long");
-    fst::PrintFstInfoImpl(fstinfo, std::cout);
-    remain_elapsed = timer.Elapsed();
+      fst::FstInfo fstinfo(decode_fst,false, "any", "long");
+      fst::PrintFstInfoImpl(fstinfo, true);
+      remain_elapsed = timer.Elapsed();
     }
 
       delete hcl_fst;

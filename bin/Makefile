@@ -23,6 +23,7 @@ ADDLIBS = \
 	$(KALDI_ROOT)/src/matrix/kaldi-matrix.a \
 	$(KALDI_ROOT)/src/base/kaldi-base.a
 
+LDLIBS += $(OPENFSTINC)/../lib/libfstscript.so # for fstinfo debugging in latgen-lazylm-faster-mapped
 
 
 .PHONY: all install
