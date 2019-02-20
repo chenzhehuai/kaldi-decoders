@@ -72,7 +72,7 @@ false && \
 
 #false && \
     {
-for dec_conf in conf/otf.2a.a.conf conf/otf.2a.b.conf conf/otf.2a.c.conf conf/otf.2a.d.conf conf/otf.2a.e.conf
+for dec_conf in conf/otf.2b.c.conf conf/otf.2b.b.conf conf/otf.2b.a.conf #conf/otf.2a.a.conf conf/otf.2a.b.conf conf/otf.2a.c.conf conf/otf.2a.d.conf conf/otf.2a.e.conf
 do
     for otf_mode in 3 #2
     do

@@ -88,6 +88,66 @@ ComposeFst<Arc> TableComposeFst(
 }
 
 template <class Arc>
+void PreInitFSTByIter(Fst<Arc> &fst, int32 depth = -1) {
+  using namespace kaldi;
+  using StateId = typename Arc::StateId;
+  
+  Timer timer;
+  std::set<StateId> visited;
+  std::queue<StateId> queue;
+  queue.push(fst.Start());
+  int32 cnt=0, cnt2=0;
+  std::unordered_map<StateId, int32> levels;
+  levels[fst.Start()]=0;
+  visited.insert(fst.Start());
+  for (StateIterator<Fst<Arc>> siter(fst); !siter.Done(); siter.Next()) {
+    cnt++;
+    if (cnt > depth && depth!=-1)
+      break;
+    StateId state=siter.Value();
+    fst::ArcIterator<Fst<Arc>> aiter(fst, state);
+    for (; !aiter.Done(); aiter.Next()) {
+      cnt2++;
+    }
+  }
+  KALDI_VLOG(0) << "preinit_info: " << timer.Elapsed() << " " << depth << " "<<cnt<< " " << cnt2;
+}
+
+template <class Arc>
+void PreInitFSTBySortedBFS(Fst<Arc> &fst, int32 depth = -1) {
+  using namespace kaldi;
+  using StateId = typename Arc::StateId;
+  
+  Timer timer;
+  std::unordered_set<StateId> visited;
+  std::vector<StateId> next_lev;
+  std::vector<StateId> cur_lev;
+  int32 cnt=0, cnt2=0;
+  visited.insert(fst.Start());
+  int32 lev_cnt = 0;
+  next_lev.push_back(fst.Start());
+  while (next_lev.size() && (depth<0 || lev_cnt++ < depth)) {
+    std::swap(next_lev, cur_lev);
+    next_lev.clear();
+    for (auto state:cur_lev) {
+      cnt++;
+      fst::ArcIterator<Fst<Arc>> aiter(fst, state);
+      for (; !aiter.Done(); aiter.Next()) {
+        cnt2++;
+        const auto& arc = aiter.Value();
+        StateId nextstate = arc.nextstate;
+        if (visited.find(nextstate) == visited.end()) {
+          visited.insert(nextstate);
+          next_lev.push_back(nextstate);
+        }
+      }
+    } // for auto
+    std::sort(next_lev.begin(), next_lev.end());
+  }
+  KALDI_VLOG(0) << "preinit_info: " << timer.Elapsed() << " " << depth << " "<<cnt<< " " << cnt2;
+}
+
+template <class Arc>
 void PreInitFSTByBFS(Fst<Arc> &fst, int32 depth = -1) {
   using namespace kaldi;
   using StateId = typename Arc::StateId;
@@ -96,16 +156,17 @@ void PreInitFSTByBFS(Fst<Arc> &fst, int32 depth = -1) {
   std::set<StateId> visited;
   std::queue<StateId> queue;
   queue.push(fst.Start());
-  int32 cnt=0;
+  int32 cnt=0, cnt2=0;
   std::unordered_map<StateId, int32> levels;
   levels[fst.Start()]=0;
   visited.insert(fst.Start());
   while (!queue.empty()) {
+    cnt++;
     StateId state=queue.front();
     queue.pop();
-    cnt++;
     fst::ArcIterator<Fst<Arc>> aiter(fst, state);
     for (; !aiter.Done(); aiter.Next()) {
+      cnt2++;
       const auto& arc = aiter.Value();
       StateId nextstate = arc.nextstate;
       if (visited.find(nextstate) == visited.end()) {
@@ -118,7 +179,7 @@ void PreInitFSTByBFS(Fst<Arc> &fst, int32 depth = -1) {
       }
     }
   }
-  KALDI_VLOG(0) << "preinit_info: " << timer.Elapsed() << " " << depth << " "<<cnt;
+  KALDI_VLOG(0) << "preinit_info: " << timer.Elapsed() << " " << depth << " "<<cnt<< " " << cnt2;
 }
 }  // namespace fst
 
@@ -250,6 +311,12 @@ int main(int argc, char *argv[]) {
         switch (preinit_mode) {
           case 1:
             fst::PreInitFSTByBFS(decode_fst, (int32)preinit_para);
+            break;
+          case 2:
+            fst::PreInitFSTByIter(decode_fst, (int32)preinit_para);
+            break;
+          case 3:
+            fst::PreInitFSTBySortedBFS(decode_fst, (int32)preinit_para);
             break;
           default:
             break;
