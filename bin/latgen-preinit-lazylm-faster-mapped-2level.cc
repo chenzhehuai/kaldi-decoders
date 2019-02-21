@@ -53,16 +53,14 @@ int main(int argc, char *argv[]) {
     Timer timer;
     bool allow_partial = false;
     BaseFloat acoustic_scale = 0.1;
-    int otf_mode=1;
     LatticeFasterDecoderConfig config;
+    fst::LazyLMConfig lazylm_config;
     std::string word_syms_filename;
     fst::CacheOptions cache_config;
     int gc_limit = 536870912;  // 512MB
-    int preinit_mode=0;
-    BaseFloat preinit_para=-1;
-    int debug_mode=0;
 
     config.Register(&po);
+    lazylm_config.Register(&po);
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoos.");
     po.Register("allow-partial", &allow_partial,
@@ -76,14 +74,6 @@ int main(int argc, char *argv[]) {
                 "garbage collection.");
     po.Register("word-symbol-table", &word_syms_filename,
                 "Symbol table for words [for debug output].");
-    po.Register("otf-mode", &otf_mode,
-                "on-the-fly comp. mode.");
-    po.Register("preinit-mode", &preinit_mode,
-                "preinit mode.");
-    po.Register("preinit-para", &preinit_para,
-                "preinit mode.");
-    po.Register("debug-mode", &debug_mode,
-                "on-the-fly debug mode.");
 
 
     po.Read(argc, argv);
@@ -123,7 +113,7 @@ int main(int argc, char *argv[]) {
         KALDI_ERR << "Could not read symbol table from file "
                    << word_syms_filename;
 
-    double tot_like = 0.0, elapsed=0.0, remain_elapsed=0.0, remain_elapsed_st;
+    double tot_like = 0.0, elapsed=0.0;
     kaldi::int64 frame_count = 0;
     int num_success = 0, num_fail = 0;
 
@@ -144,25 +134,17 @@ int main(int argc, char *argv[]) {
       fst::Fst<StdArc> *g_fst = fst::ReadFstKaldiGeneric(g_in_str, true);
 
       // On-demand composition of HCL and G
-      fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
-                  *hcl_fst, *g_fst, cache_config, otf_mode);
-      if (debug_mode&(1<<2))
-      {
-        timer.Reset();
-        // delete these only after decoder goes out of scope.
-        fst::FstInfo fstinfo(decode_fst,false, "any", "long");
-        fst::PrintFstInfoImpl(fstinfo, true);
-        remain_elapsed_st = timer.Elapsed();
-      }
-
-      if (preinit_mode) PreInitFST(decode_fst, preinit_mode, preinit_para);
+      fst::LazyLMComposeFst<StdArc> lazylm(*hcl_fst, *g_fst, lazylm_config, cache_config);
+      lazylm.PreInitFST();
 
       timer.Reset();
       {
 
         for (; !loglike_reader.Done(); loglike_reader.Next()) {
-          // use Copy() itf. by this way, the memory won't keep growing. it shows that we can use it to imp public & local cacheStore
-          fst::ComposeFst<StdArc> decode_fst_local = fst::ComposeFst<StdArc>(decode_fst, true); 
+          // THIS IS only a demo
+          // use Copy() itf. by this way, the memory won't keep growing. 
+          // it shows that we can use it to imp public & local cacheStore
+          fst::ComposeFst<StdArc> decode_fst_local = fst::ComposeFst<StdArc>(*lazylm.decode_fst_, true); 
           LatticeFasterDecoder decoder(decode_fst_local, config);
 
 
@@ -188,85 +170,22 @@ int main(int argc, char *argv[]) {
             frame_count += loglikes.NumRows();
             num_success++;
           } else num_fail++;
-    if (debug_mode&(1<<1))
-    {
-        ;
-        //std::cout << "arc state:"<<  decode_fst.fst::internal::CacheImpl::NumStates(); //decode_fst.GetMutableImpl()->fst::internal::ComposeFstImplBase<StdArc>::NumArcs() <<
-    }
         }
       }
-    elapsed = timer.Elapsed();
-    if (debug_mode&(1<<0))
-    {
-      timer.Reset();
-      // delete these only after decoder goes out of scope.
-      fst::FstInfo fstinfo(decode_fst,false, "any", "long");
-      fst::PrintFstInfoImpl(fstinfo, true);
-      remain_elapsed = timer.Elapsed();
-    }
+      elapsed = timer.Elapsed();
 
       delete hcl_fst;
       delete g_fst;
-    } 
-#if 0
-    else if(is_table_hcl && is_table_g) {
-      // We have different FSTs for different utterances.
-      SequentialBaseFloatMatrixReader loglike_reader(feature_rspecifier);
-      RandomAccessTableReader<fst::VectorFstHolder> hcl_reader(hcl_in_str);
-      RandomAccessTableReader<fst::VectorFstHolder> g_reader(g_in_str);
-      for (; !loglike_reader.Done(); loglike_reader.Next()) {
-        std::string utt = loglike_reader.Key();
-        const Matrix<BaseFloat> &loglikes = loglike_reader.Value();
-        loglike_reader.FreeCurrent();
-        if (loglikes.NumRows() == 0) {
-          KALDI_WARN << "Zero-length utterance: " << utt;
-          num_fail++;
-          continue;
-        }
-        if (!hcl_reader.HasKey(utt)) {
-          KALDI_WARN << "Not decoding utterance " << utt
-                     << " because no HCL is available.";
-          num_fail++;
-          continue;
-        }
-        if (!g_reader.HasKey(utt)) {
-          KALDI_WARN << "Not decoding utterance " << utt
-                     << " because no G is available.";
-          num_fail++;
-          continue;
-        }
-
-        // On-demand composition of HCL and G
-        fst::ComposeFst<StdArc> decode_fst = fst::TableComposeFst(
-            hcl_reader.Value(utt), g_reader.Value(utt), cache_config);
-
-        LatticeFasterDecoder decoder(decode_fst, config);
-        DecodableMatrixScaledMapped decodable(trans_model, loglikes,
-                                              acoustic_scale);
-        double like;
-        if (DecodeUtteranceLatticeFaster(
-                decoder, decodable, trans_model, word_syms, utt, acoustic_scale,
-                determinize, allow_partial, &alignment_writer, &words_writer,
-                &compact_lattice_writer, &lattice_writer, &like)) {
-          tot_like += like;
-          frame_count += loglikes.NumRows();
-          num_success++;
-        } else num_fail++;
-      }
-    } 
-#endif    
-    else {
+    } else {
       KALDI_ERR << "The decoding of tables/non-tables and match-type that you "
                 << "supplied is not currently supported. Either implement "
                 << "this, ask the maintainers to implement it, or call this "
                 << "program differently.";
     }
 
-
     KALDI_LOG << "Time taken "<< elapsed
               << "s: real-time factor assuming 100 frames/sec is "
               << (elapsed*100.0/frame_count);
-    KALDI_LOG << "loading remaining HCLG: "<< remain_elapsed_st <<" "<< remain_elapsed ;
     KALDI_LOG << "Done " << num_success << " utterances, failed for "
               << num_fail;
     KALDI_LOG << "Overall log-likelihood per frame is " << (tot_like/frame_count) << " over "

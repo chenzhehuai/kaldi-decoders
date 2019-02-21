@@ -7,7 +7,9 @@ endif
 EXTRA_CXXFLAGS = -Wno-sign-compare -Wno-unused-variable -I$(KALDI_ROOT)/src
 include $(KALDI_ROOT)/src/kaldi.mk
 
-BINFILES = decode-lazylm-faster-mapped latgen-lazylm-faster-mapped latgen-preinit-lazylm-faster-mapped  latgen-preinit-lazylm-faster-mapped-2level
+BINFILES = decode-lazylm-faster-mapped latgen-lazylm-faster-mapped \
+					 latgen-preinit-lazylm-faster-mapped  latgen-preinit-lazylm-faster-mapped-2level \
+					 preinit-lazylm-get-statetable
 
 
 OBJFILES =
@@ -24,7 +26,7 @@ ADDLIBS = \
 	$(KALDI_ROOT)/src/matrix/kaldi-matrix.a \
 	$(KALDI_ROOT)/src/base/kaldi-base.a
 
-LDLIBS += $(OPENFSTINC)/../lib/libfstscript.so # for fstinfo debugging in latgen-lazylm-faster-mapped
+#LDLIBS += $(OPENFSTINC)/../lib/libfstscript.so # for fstinfo debugging in latgen-lazylm-faster-mapped
 
 
 .PHONY: all install

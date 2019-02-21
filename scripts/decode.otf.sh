@@ -39,7 +39,8 @@ decgraph=
 compose_gc=true
 preinit_mode=0
 preinit_para=-1
-debug_mode=0
+init_statetable=
+init_all=0
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -189,6 +190,61 @@ if [ x$otfdec = x ]; then
 else
     nnet3-am-copy --raw=true $model $dir/final.raw
 
+    if [ "x$init_statetable" != x ]; then
+
+    mkdir $dir/state_table/
+    if [ "$init_all" != 1 ]; then
+
+    nnet3-compute --use-gpu=no $ivector_opts $frame_subsampling_opt \
+     --frames-per-chunk=$frames_per_chunk \
+     --extra-left-context=$extra_left_context \
+     --extra-right-context=$extra_right_context \
+     --extra-left-context-initial=$extra_left_context_initial \
+     --extra-right-context-final=$extra_right_context_final \
+    $dir/final.raw \
+     "`echo $feats | sed 's/JOB/1/g'`" ark:- \
+    | $otfdec $otf_addin \
+    --statetable-in-filename=$init_statetable \
+    --statetable-out-filename=$dir/state_table.1 \
+    --compose-gc=$compose_gc \
+    --preinit-mode=$preinit_mode --preinit-para=$preinit_para \
+     --max-active=$max_active --min-active=$min_active --beam=$beam \
+      $latconf  --acoustic-scale=$acwt --allow-partial=true \
+     --word-symbol-table=$graphdir/words.txt \
+     "$model" \
+     $graphdir/left.fst $graphdir/right.fst \
+     "ark:-" "ark:/dev/null" 2>&1 | tee $dir/log/init_state_table.log || exit 1;
+    
+  else
+
+    statetable_addin=" --statetable-in-filename=$init_statetable --statetable-out-filename=$dir/state_table/t1.JOB "
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log0/decode.JOB.log \
+    nnet3-compute --use-gpu=no $ivector_opts $frame_subsampling_opt \
+     --frames-per-chunk=$frames_per_chunk \
+     --extra-left-context=$extra_left_context \
+     --extra-right-context=$extra_right_context \
+     --extra-left-context-initial=$extra_left_context_initial \
+     --extra-right-context-final=$extra_right_context_final \
+    $dir/final.raw \
+    "$feats" "ark:-" \
+    "|" $otfdec $otf_addin \
+    $statetable_addin \
+    --compose-gc=$compose_gc \
+    --preinit-mode=$preinit_mode --preinit-para=$preinit_para \
+     --max-active=$max_active --min-active=$min_active --beam=$beam \
+      $latconf  --acoustic-scale=$acwt --allow-partial=true \
+     --word-symbol-table=$graphdir/words.txt \
+     "$model" \
+     $graphdir/left.fst $graphdir/right.fst \
+     "ark:-" "ark:/dev/null" || exit 1;
+  # merge state_table into $dir/state_table.1
+  merge-statetable --debug-level=1 $dir/state_table/t1.* $dir/state_table.1
+
+  fi
+    statetable_addin=" --statetable-in-filename=$dir/state_table.1 --statetable-out-filename=$dir/state_table/t2.JOB "
+
+    fi
+
   $cmd --num-threads $num_threads JOB=1:$nj $dir/log/decode.JOB.log \
     nnet3-compute --use-gpu=no $ivector_opts $frame_subsampling_opt \
      --frames-per-chunk=$frames_per_chunk \
@@ -199,9 +255,9 @@ else
     $dir/final.raw \
     "$feats" "ark:-" \
     "|" $otfdec $otf_addin \
+    $statetable_addin \
     --compose-gc=$compose_gc \
     --preinit-mode=$preinit_mode --preinit-para=$preinit_para \
-    --debug-mode=$debug_mode \
      --max-active=$max_active --min-active=$min_active --beam=$beam \
       $latconf  --acoustic-scale=$acwt --allow-partial=true \
      --word-symbol-table=$graphdir/words.txt \
