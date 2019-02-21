@@ -161,7 +161,11 @@ int main(int argc, char *argv[]) {
       {
 
         for (; !loglike_reader.Done(); loglike_reader.Next()) {
-          LatticeFasterDecoder decoder(decode_fst, config);
+          // use Copy() itf. by this way, the memory won't keep growing. it shows that we can use it to imp public & local cacheStore
+          fst::ComposeFst<StdArc> decode_fst_local = fst::ComposeFst<StdArc>(decode_fst, true); 
+          LatticeFasterDecoder decoder(decode_fst_local, config);
+
+
           std::string utt = loglike_reader.Key();
           Matrix<BaseFloat> loglikes (loglike_reader.Value());
           loglike_reader.FreeCurrent();

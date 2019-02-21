@@ -7,7 +7,7 @@ endif
 EXTRA_CXXFLAGS = -Wno-sign-compare -Wno-unused-variable -I$(KALDI_ROOT)/src
 include $(KALDI_ROOT)/src/kaldi.mk
 
-BINFILES = decode-lazylm-faster-mapped latgen-lazylm-faster-mapped latgen-preinit-lazylm-faster-mapped
+BINFILES = decode-lazylm-faster-mapped latgen-lazylm-faster-mapped latgen-preinit-lazylm-faster-mapped  latgen-preinit-lazylm-faster-mapped-2level
 
 
 OBJFILES =
