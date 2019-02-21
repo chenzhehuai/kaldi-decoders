@@ -28,12 +28,37 @@
 namespace fst {
 using namespace kaldi;
 
+template <typename Arc, typename FilterState, typename StateTuple =
+                DefaultComposeStateTuple<typename Arc::StateId, FilterState>>
+class PreinitComposeStateTable: public GenericComposeStateTable<Arc, FilterState, StateTuple> {
+  using StateId = typename Arc::StateId;
+  using GenericComposeStateTable<Arc, FilterState, StateTuple>::GenericComposeStateTable;
+  using GenericComposeStateTable<Arc, FilterState, StateTuple>::Size;
+  using GenericComposeStateTable<Arc, FilterState, StateTuple>::FindEntry;
+  typedef std::vector<std::pair<StateTuple, int32>> MapHolder;
+ public:
+  StateId FindState(const StateTuple &tuple) {
+    StateId ret = GenericComposeStateTable<Arc, FilterState, StateTuple>::FindState(tuple);
+    //printf("%i:%i:%i ", tuple.StateId1(), tuple.StateId2(), ret);
+    if (ret>=state_counter_.size()) state_counter_.resize(ret+1, 0);
+    state_counter_[ret]++;
+    return ret;
+  }
+  void GetId2Entry(MapHolder& id2entry) {
+    for (int32 i = 0; i<Size(); i++) 
+      id2entry.emplace_back(FindEntry(i), state_counter_[i]);
+    return;
+  }
+ private:
+  std::vector<int64> state_counter_;
+};
 template<class Arc>
 ComposeFst<Arc> TableComposeFst(
     const Fst<Arc> &ifst1, const Fst<Arc> &ifst2,
     const CacheOptions& cache_opts = CacheOptions(),
     const int otf_mode = 1) {
-      if (otf_mode==1) {
+      switch (otf_mode) {
+        case 1: {
               typedef Fst<Arc> F;
               typedef SortedMatcher<F> SM;
               typedef TableMatcher<F> TM;
@@ -47,8 +72,9 @@ ComposeFst<Arc> TableComposeFst(
               PWLCF* laf = new PWLCF(ifst1, ifst2, lam1, lam2);
               ComposeFstImplOptions<TM, LA_SM, PWLCF> opts(cache_opts, lam1, lam2, laf);
               return ComposeFst<Arc>(ifst1, ifst2, opts);
-      }
-      else if (otf_mode==2) {
+              break;
+                }
+        case 2: {
               typedef LookAheadMatcher< StdFst > M;
               typedef AltSequenceComposeFilter<M> SF;
               typedef LookAheadComposeFilter<SF, M>  LF;
@@ -56,30 +82,46 @@ ComposeFst<Arc> TableComposeFst(
               typedef PushLabelsComposeFilter<WF, M> ComposeFilter;
               typedef M FstMatcher;
           
-              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts2(cache_opts);
-              return ComposeFst<Arc>(ifst1, ifst2, opts2);
-      }
-      else if (otf_mode==3) {
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+              break;
+                }
+        case 3: {
               typedef DefaultLookAhead<Arc, MATCH_OUTPUT> LA;
               using FstMatcher = typename LA::FstMatcher;
               using ComposeFilter = typename LA::ComposeFilter;
-              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
-              return ComposeFst<Arc>(ifst1, ifst2, opts3);
-      }
-      else if (otf_mode==4) {
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+              break;
+                }
+        case 13: {
+              typedef DefaultLookAhead<Arc, MATCH_OUTPUT> LA;
+              using FstMatcher = typename LA::FstMatcher;
+              using ComposeFilter = typename LA::ComposeFilter;
+              typedef PreinitComposeStateTable<Arc, typename ComposeFilter::FilterState> StateTable;
+              ComposeFstImplOptions<FstMatcher, FstMatcher, ComposeFilter, StateTable> opts(cache_opts);
+              opts.state_table = new StateTable(ifst1, ifst2);
+              opts.own_state_table = false; // TODO: delete it manually
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+              break;
+                }
+        case 4: {
               typedef DefaultLookAhead<Arc, MATCH_INPUT> LA;
               using FstMatcher = typename LA::FstMatcher;
               using ComposeFilter = typename LA::ComposeFilter;
-              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts3(cache_opts);
-              return ComposeFst<Arc>(ifst1, ifst2, opts3);
-      }
-      else if (otf_mode==5) {
-              return ComposeFst<Arc>(ifst1, ifst2, cache_opts);
-      }
-      else
-      {
+              ComposeFstOptions<Arc, FstMatcher, ComposeFilter> opts(cache_opts);
+              return ComposeFst<Arc>(ifst1, ifst2, opts);
+              break;
+                }
+        case 5: {
+              return ComposeFst<Arc>(ifst1, ifst2, cache_opts); // use default lookahead
+              break;
+                }
+        default: {
               KALDI_ERR << "otf_mode undefined: " << otf_mode << std::endl;
               return ComposeFst<Arc>(ifst1, ifst2, cache_opts);
+              break;
+                 }
       }
 }
 template <class Arc>
