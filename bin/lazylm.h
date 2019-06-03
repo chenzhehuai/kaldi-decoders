@@ -195,7 +195,7 @@ class LazyLMComposeFst {
               break;
                 }
         default: {
-              KALDI_WARN << "otf_mode undefined: " << otf_mode << std::endl;
+              KALDI_WARN << "otf_mode undefined: " << otf_mode;
               decode_fst_ = new ComposeFst<Arc, CacheStore>(ifst1, ifst2, cache_opts);
               break;
                  }

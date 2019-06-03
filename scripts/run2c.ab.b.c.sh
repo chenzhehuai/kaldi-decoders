@@ -5,8 +5,9 @@ set -x
 #otfdec=decode-lazylm-faster-mapped
 otfdec=latgen-preinit-lazylm-faster-mapped
 decode_cmd=$decode_cmd" -l hostname=c*  " #-l hostname=c02
-stage=6
-otf_data=data_otf/lang_test_tgsmall.h3/
+stage=4
+gaf=c
+otf_data=data_otf/lang_test_tgsmall.h3$gaf/
 #otf_data=data_otf/lang_test_tgsmall.h/
 affix=1g   # affix for the TDNN directory name
 amdir=exp/chain/tdnn${affix}_sp/
@@ -14,7 +15,7 @@ amdir=exp/chain/tdnn${affix}_sp/
 
 
 if [ $stage -le 0 ]; then
-bash scripts/makehlevel_3.sh data/lang_test_tgsmall  exp/chain/tdnn${affix}_sp/ $otf_data $KALDI_ROOT #exp/chain/tree_sp/graph_tgsmall
+bash scripts/makehlevel_3$gaf.sh data/lang_test_tgsmall  exp/chain/tdnn${affix}_sp/ $otf_data $KALDI_ROOT #exp/chain/tree_sp/graph_tgsmall
 
 exit
 fi
@@ -33,7 +34,7 @@ otflang=$otf_data
 
 
 if [ $stage -le 4 ]; then
-false && \
+#false && \
 {
       decgraph=$otflang/HcCLG.fst
       #decgraph=$otflang/HcCLG2.fst
@@ -73,7 +74,7 @@ false && \
 
 #false && \
     {
-for dec_conf in conf/otf.2b.c.conf conf/otf.2b.b.conf conf/otf.2b.a.conf #conf/otf.2a.a.conf conf/otf.2a.b.conf conf/otf.2a.c.conf conf/otf.2a.d.conf conf/otf.2a.e.conf
+for dec_conf in conf/otf.1a.conf #conf/otf.2b.c.conf conf/otf.2b.b.conf conf/otf.2b.a.conf #conf/otf.2a.a.conf conf/otf.2a.b.conf conf/otf.2a.c.conf conf/otf.2a.d.conf conf/otf.2a.e.conf
 do
     for otf_mode in 3 #2
     do
@@ -100,6 +101,8 @@ done
 
   wait
 
+exit
+
 fi
 
 if [ $stage -le 5 ]; then
@@ -108,7 +111,7 @@ fi
 
 if [ $stage -le 6 ]; then
 
-for dec_conf in conf/otf.2c.b.b.conf conf/otf.2c.b.c.conf #conf/otf.2c.b.conf #conf/otf.2c.a.conf
+for dec_conf in conf/otf.2c.b.conf #conf/otf.2c.a.conf
 do
     for otf_mode in 13 #2
     do
